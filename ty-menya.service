@@ -1,0 +1,17 @@
+# Шаблон. Не копируй руками — запусти install-always-on.sh, он подставит пути.
+[Unit]
+Description=Ty menya prostish (romantic site + Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/zest-acre-forest-rose/romantic-site
+ExecStart=/home/ubuntu/zest-acre-forest-rose/romantic-site/.venv/bin/python /home/ubuntu/zest-acre-forest-rose/romantic-site/server.py
+Restart=always
+RestartSec=2
+Environment=HOST=0.0.0.0
+Environment=PORT=8080
+
+[Install]
+WantedBy=multi-user.target
