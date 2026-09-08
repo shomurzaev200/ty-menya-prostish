@@ -54,6 +54,16 @@ const state = {
   later: false,
   error: "",
   muted: false,
+  setup: false,
+  tapHint: "",
+  tgToken: "",
+  tgChatId: "",
+  tgChats: [],
+  tgBusy: "",
+  tgError: "",
+  tgHint: "",
+  botName: "",
+  pinged: "",
 };
 
 const els = {
@@ -69,12 +79,17 @@ let lastFlee = 0;
 const rapid = [];
 let musicCtl = null;
 let musicStarted = false;
+let heartTaps = 0;
+let heartTapTimer = 0;
+let heartHoldTimer = 0;
+let heartHeld = false;
 
 function portrait() {
-  if (CONFIG.photoUrl) {
-    return `<button class="portrait" type="button" aria-label="Портрет"><img src="${CONFIG.photoUrl}" alt="" /></button>`;
-  }
-  return `<button class="portrait" type="button" aria-label="Сердце"><span class="beat">💗</span></button>`;
+  const heart = CONFIG.photoUrl
+    ? `<img src="${CONFIG.photoUrl}" alt="" />`
+    : `<span class="beat">💗</span>`;
+  return `<button class="portrait" id="portrait" type="button" aria-label="Сердце">${heart}</button>
+    <p class="tap-hint" id="tap-hint">${state.tapHint || ""}</p>`;
 }
 
 function stepIndex() {
@@ -102,6 +117,11 @@ function renderProgress() {
 function render() {
   renderProgress();
   const sc = els.screen;
+  if (state.setup) {
+    els.noFloat.classList.add("hidden");
+    renderSetup();
+    return;
+  }
   sc.className = "card" + (state.screen === "plan" ? " left" : "");
   if (state.screen === "forgive") {
     const scale = YES_SCALE[Math.min(state.attempts, YES_SCALE.length - 1)];
@@ -127,6 +147,7 @@ function render() {
       }`;
     document.getElementById("yes")?.addEventListener("click", onYes);
     bindNo(document.getElementById("no"));
+    bindPortrait();
     if (state.attempts === 0) els.noFloat.classList.add("hidden");
   } else if (state.screen === "loved") {
     els.noFloat.classList.add("hidden");
@@ -136,6 +157,7 @@ function render() {
       <p class="sub">Ты меня любишь! 🥰</p>
       <p class="hint">Я тоже тебя очень люблю ❤️</p>
       <p class="tiny">И я знал, что ты меня простишь 😌</p>
+      ${state.pinged === "yes" ? `<p class="tiny">Ему уже пришло уведомление 💌</p>` : ""}
       <div class="actions"><button class="btn-yes" id="next" type="button">Дальше →</button></div>`;
     document.getElementById("next").onclick = () => {
       state.screen = "ask";
@@ -222,6 +244,18 @@ function render() {
       burst();
       state.screen = "done";
       render();
+      notify({
+        kind: "meeting",
+        date: formatDate(state.date),
+        time: state.time,
+        place: state.place.trim(),
+        hp: "",
+      }).then((r) => {
+        if (r && r.ok) {
+          state.pinged = "meeting";
+          render();
+        }
+      });
     };
   } else if (state.screen === "done") {
     sc.innerHTML = `
@@ -235,6 +269,7 @@ function render() {
         <p>📍 ${escapeHtml(state.place)}</p>
       </div>
       <p class="title" style="font-size:28px;margin-top:28px">❤️ СВИДАНИЕ СОСТОИТСЯ ❤️</p>
+      ${state.pinged ? `<p class="tiny">Ему уже пришло уведомление в Telegram 💌</p>` : ""}
       ${
         CONFIG.telegramUrl
           ? `<div class="actions"><a class="btn-yes" href="${CONFIG.telegramUrl}" target="_blank" rel="noreferrer">Написать мне в Telegram 💬</a></div>`
@@ -327,6 +362,12 @@ function onYes() {
   state.screen = "loved";
   els.noFloat.classList.add("hidden");
   render();
+  notify({ kind: "yes", attempts: state.attempts, hp: "" }).then((r) => {
+    if (r && r.ok) {
+      state.pinged = "yes";
+      render();
+    }
+  });
 }
 
 function burst() {
@@ -497,6 +538,197 @@ window.addEventListener(
   { passive: true },
 );
 
+async function api(body) {
+  const res = await fetch("/api/tg", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  let json = {};
+  try {
+    json = await res.json();
+  } catch {
+    json = {};
+  }
+  if (!res.ok) {
+    throw new Error(json.error || "Не получилось связаться с сервером Telegram.");
+  }
+  return json;
+}
+
+async function notify(body) {
+  try {
+    return await api({ action: "notify", ...body });
+  } catch {
+    return { ok: false };
+  }
+}
+
+function openSetup() {
+  heartTaps = 0;
+  state.tapHint = "";
+  state.setup = true;
+  state.tgError = "";
+  render();
+}
+
+function bindPortrait() {
+  const btn = document.getElementById("portrait");
+  if (!btn) return;
+  const down = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    heartHeld = false;
+    window.clearTimeout(heartHoldTimer);
+    heartHoldTimer = window.setTimeout(() => {
+      heartHeld = true;
+      if (navigator.vibrate) navigator.vibrate(30);
+      openSetup();
+    }, 1100);
+  };
+  const up = (e) => {
+    e.preventDefault();
+    window.clearTimeout(heartHoldTimer);
+    if (heartHeld) return;
+    heartTaps += 1;
+    window.clearTimeout(heartTapTimer);
+    if (heartTaps >= 5) {
+      openSetup();
+      return;
+    }
+    state.tapHint = heartTaps >= 2 ? `Ещё ${5 - heartTaps}, или зажми сердце` : "";
+    const hint = document.getElementById("tap-hint");
+    if (hint) hint.textContent = state.tapHint;
+    heartTapTimer = window.setTimeout(() => {
+      heartTaps = 0;
+      state.tapHint = "";
+      if (hint) hint.textContent = "";
+    }, 2800);
+  };
+  const cancel = () => window.clearTimeout(heartHoldTimer);
+  btn.addEventListener("pointerdown", down);
+  btn.addEventListener("pointerup", up);
+  btn.addEventListener("pointercancel", cancel);
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+function renderSetup() {
+  const sc = els.screen;
+  sc.className = "card left";
+  const chips = (state.tgChats || [])
+    .map(
+      (c) =>
+        `<button type="button" class="chip${state.tgChatId === c.id ? " on" : ""}" data-chat="${escapeHtml(c.id)}">${escapeHtml(c.title)}</button>`,
+    )
+    .join("");
+  sc.innerHTML = `
+    <p style="text-align:center;font-size:40px;margin:0">💬</p>
+    <h1 style="text-align:center;margin-top:8px">Уведомления в Telegram</h1>
+    <p class="setup-note">Когда она нажмёт «Да» и когда выберет свидание — тебе придёт сообщение. Токен остаётся на сервере.</p>
+    ${state.botName ? `<p class="setup-note">Сейчас подключён ${escapeHtml(state.botName)}</p>` : ""}
+    <ol class="setup-steps">
+      <li>Открой Telegram → найди <strong>@BotFather</strong>.</li>
+      <li>Скопируй токен своего бота.</li>
+      <li>Открой бота и нажми <strong>Start</strong>.</li>
+      <li>Вставь токен сюда и найди чат.</li>
+    </ol>
+    <label>Токен бота
+      <input class="field" id="tg-token" type="password" autocomplete="off" spellcheck="false" placeholder="123456789:AA...." value="${escapeHtml(state.tgToken)}" />
+    </label>
+    <div class="row">
+      <button class="btn-ghost" id="tg-find" type="button">${state.tgBusy === "chats" ? "Ищу…" : "Найти мой чат"}</button>
+    </div>
+    ${
+      chips
+        ? `<label>Куда присылать</label><div class="chips" id="tg-chats">${chips}</div>`
+        : `<label>Chat ID — если уже знаешь
+            <input class="field" id="tg-chat" inputmode="numeric" placeholder="Например 123456789" value="${escapeHtml(state.tgChatId)}" />
+          </label>`
+    }
+    ${state.tgHint ? `<p class="setup-note">${escapeHtml(state.tgHint)}</p>` : ""}
+    ${state.tgError ? `<p class="err">${escapeHtml(state.tgError)}</p>` : ""}
+    <div class="actions col">
+      <button class="btn-yes" id="tg-save" type="button">${state.tgBusy === "save" ? "Отправляю проверку…" : "Сохранить и проверить ❤️"}</button>
+      <button class="btn-ghost" id="tg-skip" type="button">Пока без уведомлений — открыть сайт</button>
+    </div>`;
+
+  const tokenEl = document.getElementById("tg-token");
+  if (tokenEl) tokenEl.oninput = (e) => {
+    state.tgToken = e.target.value;
+  };
+  const chatEl = document.getElementById("tg-chat");
+  if (chatEl) chatEl.oninput = (e) => {
+    state.tgChatId = e.target.value;
+  };
+  document.getElementById("tg-chats")?.querySelectorAll("[data-chat]").forEach((b) => {
+    b.onclick = () => {
+      state.tgChatId = b.getAttribute("data-chat") || "";
+      render();
+    };
+  });
+  const busy = Boolean(state.tgBusy);
+  const findBtn = document.getElementById("tg-find");
+  const saveBtn = document.getElementById("tg-save");
+  const skipBtn = document.getElementById("tg-skip");
+  if (findBtn) findBtn.disabled = busy;
+  if (saveBtn) saveBtn.disabled = busy;
+  if (skipBtn) skipBtn.disabled = busy;
+
+  findBtn.onclick = async () => {
+    state.tgToken = tokenEl.value.trim();
+    state.tgError = "";
+    state.tgHint = "";
+    state.tgBusy = "chats";
+    render();
+    try {
+      const res = await api({ action: "chats", token: state.tgToken });
+      state.tgChats = res.chats || [];
+      if (!state.tgChats.length) {
+        state.tgHint = "Чатов пока нет. Открой бота, нажми Start — и повтори поиск.";
+      } else {
+        state.tgHint = "Выбери чат, куда писать. Обычно это ты.";
+        if (state.tgChats.length === 1) state.tgChatId = state.tgChats[0].id;
+      }
+    } catch (err) {
+      state.tgError = err.message || "Не получилось.";
+      if (/Failed to fetch|404|Not found|сервер/i.test(state.tgError) || err.message === "Failed to fetch") {
+        state.tgError = "Нужен сервер с Telegram. Останови старый запуск и сделай: python3 server.py";
+      }
+    }
+    state.tgBusy = "";
+    render();
+  };
+
+  saveBtn.onclick = async () => {
+    state.tgToken = tokenEl.value.trim();
+    if (chatEl) state.tgChatId = chatEl.value.trim();
+    state.tgError = "";
+    state.tgBusy = "save";
+    render();
+    try {
+      const res = await api({ action: "save", token: state.tgToken, chatId: state.tgChatId });
+      state.botName = res.botUsername || "";
+      state.setup = false;
+      state.tgBusy = "";
+      state.tgToken = "";
+      render();
+      return;
+    } catch (err) {
+      state.tgError = err.message || "Не получилось.";
+      if (err.message === "Failed to fetch") {
+        state.tgError = "Нужен сервер с Telegram. Останови старый запуск и сделай: python3 server.py";
+      }
+    }
+    state.tgBusy = "";
+    render();
+  };
+
+  skipBtn.onclick = () => {
+    state.setup = false;
+    render();
+  };
+}
+
 setTimeout(() => {
   state.line = 1;
   render();
@@ -510,5 +742,14 @@ setTimeout(() => {
   render();
 }, 1400);
 
+if (new URLSearchParams(location.search).get("setup") === "1" || location.hash === "#setup") {
+  state.setup = true;
+}
+
 spawnHearts();
 render();
+api({ action: "status" })
+  .then((s) => {
+    if (s.botUsername) state.botName = s.botUsername;
+  })
+  .catch(() => {});
