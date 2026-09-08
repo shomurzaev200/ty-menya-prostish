@@ -4,8 +4,8 @@
 
 ## Как открыть
 
-1. На GitHub: кнопка **Code → Download ZIP**.
-2. Распакуй и открой `index.html`.
+1. Скачай папку (ZIP с GitHub: **Code → Download ZIP**).
+2. Открой `index.html`.
 3. Отправь ссылку или сам файл.
 
 ## Как настроить
@@ -15,11 +15,15 @@
 ```js
 senderName: "Абдулазиз",
 recipientName: "Любимая",
-telegramUrl: "https://t.me/username",
-photoUrl: "assets/photo.jpg",
+telegramUrl: "https://t.me/username",  // кнопка Telegram на финале
+photoUrl: "assets/photo.jpg",          // круглое фото, если есть
 musicEnabled: true
 ```
 
 Положи совместное фото в `assets/photo.jpg` и пропиши путь в `photoUrl`.
 
-Кнопка **Нет** убегает. Кнопка **Да** растёт. После «Да» — признание, свидание, дата / время / место.
+## Что внутри
+
+Кнопка **Нет** убегает. Кнопка **Да** растёт. После «Да» — признание, предложение встретиться, дата / время / место.
+
+Меняй только `CONFIG`, если не хочешь трогать логику.
