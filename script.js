@@ -72,9 +72,9 @@ let musicStarted = false;
 
 function portrait() {
   if (CONFIG.photoUrl) {
-    return `<div class="portrait"><img src="${CONFIG.photoUrl}" alt="" /></div>`;
+    return `<button class="portrait" type="button" aria-label="Портрет"><img src="${CONFIG.photoUrl}" alt="" /></button>`;
   }
-  return `<div class="portrait"><span class="beat">💗</span></div>`;
+  return `<button class="portrait" type="button" aria-label="Сердце"><span class="beat">💗</span></button>`;
 }
 
 function stepIndex() {
@@ -112,14 +112,14 @@ function render() {
       <p class="hint ${state.line >= 2 ? "fade" : ""}">${state.line >= 2 ? CONFIG.apologyFollow : " "}</p>
       ${
         state.showQuestion
-          ? `<div class="fade" style="margin-top:32px">
+          ? `<div class="fade" style="margin-top:24px">
               <h1>${CONFIG.question}</h1>
               <p class="hint">${CONFIG.questionHint}</p>
               ${state.phrase ? `<p>${state.phrase}</p>` : ""}
               ${state.quip ? `<p class="quip">${state.quip}</p>` : ""}
               <p class="tiny">Попыток сказать «нет»: ${state.attempts} 😏</p>
               <div class="actions">
-                <button class="btn-yes" id="yes" type="button" style="transform:scale(${Math.min(scale, 2.15)})">Да ❤️</button>
+                <button class="btn-yes" id="yes" type="button" style="--yes-scale:${Math.min(scale, 2.15)}">Да ❤️</button>
                 ${state.attempts === 0 ? `<button class="btn-no" id="no" type="button">Нет 😤</button>` : ""}
               </div>
             </div>`
@@ -131,8 +131,8 @@ function render() {
   } else if (state.screen === "loved") {
     els.noFloat.classList.add("hidden");
     sc.innerHTML = `
-      <div class="beat" style="font-size:72px">❤️</div>
-      <h1 style="margin-top:20px">Я ТАК И ЗНАЛ! 😎❤️</h1>
+      <div class="beat" style="font-size:64px">❤️</div>
+      <h1 style="margin-top:16px">Я ТАК И ЗНАЛ! 😎❤️</h1>
       <p class="sub">Ты меня любишь! 🥰</p>
       <p class="hint">Я тоже тебя очень люблю ❤️</p>
       <p class="tiny">И я знал, что ты меня простишь 😌</p>
@@ -225,7 +225,7 @@ function render() {
     };
   } else if (state.screen === "done") {
     sc.innerHTML = `
-      <div class="beat" style="font-size:72px">❤️</div>
+      <div class="beat" style="font-size:64px">❤️</div>
       <h1 style="margin-top:16px">Договорились! ❤️</h1>
       <p class="sub">Теперь отступать нельзя 😏</p>
       <p class="hint">Я уже жду нашей встречи 🥰</p>
@@ -391,7 +391,7 @@ function burst() {
 
 function spawnHearts() {
   const glyphs = ["❤", "💗", "✨", "🌸", "💕"];
-  for (let i = 0; i < 26; i += 1) {
+  for (let i = 0; i < 18; i += 1) {
     const s = document.createElement("span");
     s.className = "float-heart";
     s.textContent = glyphs[i % glyphs.length];
@@ -408,10 +408,11 @@ function spawnHearts() {
 
 function playRomance() {
   const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return { stop() {} };
+  if (!AC) return { stop() {}, resume() {} };
   const ctx = new AC();
+  if (ctx.state === "suspended") ctx.resume();
   const master = ctx.createGain();
-  master.gain.value = 0.07;
+  master.gain.value = 0.16;
   master.connect(ctx.destination);
   const notes = [261.63, 329.63, 392.0, 523.25, 392.0, 329.63, 293.66, 349.23];
   let i = 0;
@@ -423,7 +424,7 @@ function playRomance() {
     o.type = "sine";
     o.frequency.value = notes[i % notes.length];
     g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + 0.04);
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.15);
     o.connect(g);
     g.connect(master);
@@ -439,38 +440,75 @@ function playRomance() {
       clearInterval(id);
       ctx.close();
     },
+    resume() {
+      if (ctx.state === "suspended") ctx.resume();
+    },
   };
 }
 
 function ensureMusic() {
-  if (!CONFIG.musicEnabled || musicStarted || state.muted) return;
+  if (!CONFIG.musicEnabled || state.muted) return;
+  if (musicCtl) {
+    musicCtl.resume?.();
+    return;
+  }
   musicStarted = true;
   musicCtl = playRomance();
+  els.mute.classList.remove("mute-pulse");
+  els.mute.setAttribute("aria-label", "Выключить музыку");
 }
 
-els.mute.addEventListener("click", () => {
-  state.muted = !state.muted;
+function syncMute() {
   els.mute.textContent = state.muted ? "🔇" : "🔊";
+  els.mute.setAttribute("aria-label", state.muted || !musicStarted ? "Включить музыку" : "Выключить музыку");
+  if (state.muted || !musicStarted) els.mute.classList.add("mute-pulse");
+  else els.mute.classList.remove("mute-pulse");
+}
+
+els.mute.addEventListener("pointerdown", (e) => e.stopPropagation());
+els.mute.addEventListener("click", (e) => {
+  e.stopPropagation();
   if (state.muted) {
-    musicCtl?.stop();
-    musicCtl = null;
+    state.muted = false;
     musicStarted = false;
+    musicCtl = null;
+    ensureMusic();
+    syncMute();
+    return;
   }
+  if (!musicStarted) {
+    ensureMusic();
+    syncMute();
+    return;
+  }
+  state.muted = true;
+  musicCtl?.stop();
+  musicCtl = null;
+  musicStarted = false;
+  syncMute();
 });
 if (!CONFIG.musicEnabled) els.mute.classList.add("hidden");
+
+window.addEventListener(
+  "pointerdown",
+  () => {
+    if (!state.muted) ensureMusic();
+  },
+  { passive: true },
+);
 
 setTimeout(() => {
   state.line = 1;
   render();
-}, 700);
+}, 400);
 setTimeout(() => {
   state.line = 2;
   render();
-}, 1500);
+}, 900);
 setTimeout(() => {
   state.showQuestion = true;
   render();
-}, 2300);
+}, 1400);
 
 spawnHearts();
 render();

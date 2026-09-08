@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <title>Ты меня простишь?</title>
   <meta name="theme-color" content="#FF4F81" />
   <link rel="stylesheet" href="style.css" />
@@ -15,11 +15,16 @@
     <canvas id="confetti"></canvas>
     <header class="topbar">
       <div class="progress" id="progress" aria-label="Прогресс истории"></div>
-      <button class="mute" id="mute" type="button" aria-label="Музыка">🔊</button>
+      <button class="mute mute-pulse" id="mute" type="button" aria-label="Включить музыку">🔊</button>
     </header>
     <div class="secret hidden" id="secret">Система определила: ты просто вредничаешь 😏❤️</div>
     <div class="wrap">
-      <section class="card" id="screen"></section>
+      <section class="card" id="screen">
+        <button class="portrait" type="button" aria-label="Сердце"><span class="beat">💗</span></button>
+        <p class="title">Извини меня… 🥺</p>
+        <p class="sub">Я был не прав.</p>
+        <p class="hint">Правда прости меня ❤️</p>
+      </section>
     </div>
     <button class="btn-no hidden" id="no-float" type="button">Нет 😤</button>
   </div>
