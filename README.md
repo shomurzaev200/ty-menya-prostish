@@ -1,12 +1,29 @@
 # Ты меня простишь?
 
-Романтический интерактивный сайт. Открой `index.html` в браузере — сервер не нужен.
+Романтический интерактивный сайт. Сервер не нужен.
 
-## Как открыть
+## Скачать файлы (ZIP)
 
-1. Скачай папку (ZIP с GitHub: **Code → Download ZIP**).
-2. Открой `index.html`.
-3. Отправь ссылку или сам файл.
+Прямая ссылка:
+
+**https://github.com/shomurzaev200/ty-menya-prostish/archive/refs/heads/main.zip**
+
+Или на GitHub: зелёная кнопка **Code → Download ZIP**.
+
+Распакуй архив → открой `index.html` в браузере.
+
+Репозиторий: https://github.com/shomurzaev200/ty-menya-prostish
+
+## Ссылка, которую можно отправить
+
+Самый простой путь — открыть этот сайт в превью и отправить ей ссылку оттуда.
+
+Чтобы повесить на GitHub Pages (бесплатный адрес):
+
+1. Репозиторий → **Settings → Pages**
+2. Source: **Deploy from a branch**
+3. Branch: `main` / `/ (root)` → Save
+4. Через минуту: `https://shomurzaev200.github.io/ty-menya-prostish/`
 
 ## Как настроить
 
@@ -15,15 +32,7 @@
 ```js
 senderName: "Абдулазиз",
 recipientName: "Любимая",
-telegramUrl: "https://t.me/username",  // кнопка Telegram на финале
-photoUrl: "assets/photo.jpg",          // круглое фото, если есть
+telegramUrl: "https://t.me/username",
+photoUrl: "assets/photo.jpg",
 musicEnabled: true
 ```
-
-Положи совместное фото в `assets/photo.jpg` и пропиши путь в `photoUrl`.
-
-## Что внутри
-
-Кнопка **Нет** убегает. Кнопка **Да** растёт. После «Да» — признание, предложение встретиться, дата / время / место.
-
-Меняй только `CONFIG`, если не хочешь трогать логику.
